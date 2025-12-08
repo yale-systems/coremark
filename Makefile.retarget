@@ -1,0 +1,73 @@
+# BSD Makefile for generating object file with LLVM IR section and ifunc
+
+# Variables
+SRC?=		core_main.c
+BASE=		iterate
+OBJ_GENERIC=	${BASE}_generic.o
+OBJ_FAST=	${BASE}_fast.o
+SWITCHYARD_OBJ=	${BASE}_switchyard.o
+IR=		${BASE}.ll
+IR_OBJ=		${BASE}_ir.o
+IFUNC_OBJ=	${BASE}_ifunc.o
+FINAL_OBJ=	${BASE}_final.o
+
+CC=		clang
+CFLAGS+=	-I. -Iposix #-g #-O0 <- this is an issue because it forces noopt
+FLAGS_STR=	${CFLAGS}
+
+.MAIN: all
+
+all: ${FINAL_OBJ}
+
+# Generate LLVM IR
+#
+# For reasons that continue to escape me a vanilla compilation adds a
+# whole line of attributes that prevent later optimization.  Remove
+# all attributes (it's a single line) for now.
+${IR}: ${SRC}
+	${CC} -DFLAGS_STR="\"\"" ${CFLAGS} -S -emit-llvm ${.ALLSRC} -o ${.TARGET}
+	cat ${.TARGET} | grep -v 'attributes' > /tmp/${.TARGET}
+	cp /tmp/${.TARGET} .
+
+# Extract function name from IR (first non-internal function)
+.func_name: ${IR}
+	grep -o '^define [^@]*@[a-zA-Z_][a-zA-Z0-9_]*' ${.ALLSRC} | head -1 | sed 's/.*@//' > ${.TARGET}
+
+# Compile IR to object for embedding
+${IR_OBJ}: ${IR} .func_name
+	name=$$(cat .func_name); \
+	echo ".section .llvm_ir.$${name},\"a\",@progbits" > /tmp/ir_wrapper.s; \
+	echo ".incbin \"${IR}\"" >> /tmp/ir_wrapper.s
+	${CC} -c /tmp/ir_wrapper.s -o ${.TARGET}
+
+# Compile source to object with foo_generic
+${OBJ_GENERIC}: ${SRC} .func_name
+	${CC} -DFLAGS_STR="\"\"" ${CFLAGS} -c ${SRC} -o ${.TARGET}
+	objcopy --redefine-sym "$$(cat .func_name)=$$(cat .func_name)_generic" ${.TARGET}
+
+# Compile source to object with foo_fast
+${OBJ_FAST}: ${SRC} .func_name
+	${CC} -DFLAGS_STR="\"\"" ${CFLAGS} -c ${SRC} -o ${.TARGET}
+	objcopy --redefine-sym "$$(cat .func_name)=$$(cat .func_name)_fast" ${.TARGET}
+
+# Generate switchyard function that calls either generic or fast
+${SWITCHYARD_OBJ}: .func_name gen_switchyard.sh ${SRC}
+	./gen_switchyard.sh ${SRC} "$$(cat .func_name)" > /tmp/switchyard.c
+	${CC} -DFLAGS_STR="\"\"" ${CFLAGS} -c /tmp/switchyard.c -o ${.TARGET}
+
+# Create ifunc resolver
+${IFUNC_OBJ}: .func_name
+	name=$$(cat .func_name); \
+	echo "extern void $${name}_switchyard(void);" > /tmp/ifunc.c; \
+	echo "static void *$${name}_resolver(void) { return $${name}_switchyard; }" >> /tmp/ifunc.c; \
+	echo "void $${name}(void) __attribute__((ifunc(\"$${name}_resolver\")));" >> /tmp/ifunc.c
+	${CC} -DFLAGS_STR="\"\"" ${CFLAGS} -c /tmp/ifunc.c -o ${.TARGET}
+
+# Link everything together
+${FINAL_OBJ}: ${OBJ_GENERIC} ${OBJ_FAST} ${SWITCHYARD_OBJ} ${IR_OBJ} ${IFUNC_OBJ}
+	ld -r ${.ALLSRC} -o ${.TARGET}
+
+clean:
+	rm -f ${OBJ_GENERIC} ${OBJ_FAST} ${SWITCHYARD_OBJ} ${IR} ${IR_OBJ} ${IFUNC_OBJ} ${FINAL_OBJ} .func_name /tmp/ir_wrapper.s /tmp/ifunc.c /tmp/switchyard.c
+
+.PHONY: all clean
