@@ -23,7 +23,7 @@ run: $(OUTFILE) rerun score
 score:
 	@echo "Check run1.log and run2.log for results."
 	@echo "See README.md for run and reporting rules." 
-	
+
 ifndef PORT_DIR
 # Ports for a couple of common self hosted platforms
 UNAME=$(shell if command -v uname 2> /dev/null; then uname ; fi)
@@ -57,11 +57,12 @@ endif
 
 CFLAGS += -DITERATIONS=$(ITERATIONS)
 
-CORE_FILES = core_list_join core_main core_matrix core_state core_util
+CORE_FILES = core_list_join core_main core_matrix core_state core_util core_iterate
 ORIG_SRCS = $(addsuffix .c,$(CORE_FILES))
 SRCS = $(ORIG_SRCS) $(PORT_SRCS)
 OBJS = $(addprefix $(OPATH),$(addsuffix $(OEXT),$(CORE_FILES)) $(PORT_OBJS))
 OUTNAME = coremark$(EXE)
+TEST_OBJS = $(OPATH)core_main$(OEXT) $(OPATH)iterate_final$(OEXT) $(OPATH)core_list_join$(OEXT) $(OPATH)core_state$(OEXT) $(OPATH)core_util$(OEXT) $(OPATH)core_matrix$(OEXT) $(OPATH)core_portme$(OEXT)
 OUTFILE = $(OPATH)$(OUTNAME)
 LOUTCMD = $(OFLAG) $(OUTFILE) $(LFLAGS_END)
 OUTCMD = $(OUTFLAG) $(OUTFILE) $(LFLAGS_END)
@@ -80,7 +81,7 @@ $(OPATH)$(PORT_DIR):
 compile: $(OPATH) $(OPATH)$(PORT_DIR) $(OBJS) $(HEADERS) 
 link: compile 
 	$(LD) $(LFLAGS) $(XLFLAGS) $(OBJS) $(LOUTCMD)
-	
+
 else
 
 compile: $(OPATH) $(SRCS) $(HEADERS) 
@@ -94,6 +95,11 @@ $(OUTFILE): $(SRCS) $(HEADERS) Makefile core_portme.mak $(EXTRA_DEPENDS) $(FORCE
 	$(MAKE) port_prebuild
 	$(MAKE) link
 	$(MAKE) port_postbuild
+
+.PHONY: test
+test: $(OPATH)coremark_test$(EXE)
+$(OPATH)coremark_test$(EXE): $(TEST_OBJS)
+	$(LD) $(LFLAGS) $(XLFLAGS) $(TEST_OBJS) $(OFLAG) $@ $(LFLAGS_END)
 
 .PHONY: rerun
 rerun: 
@@ -112,7 +118,7 @@ run1.log run2.log run3.log: load
 	$(MAKE) port_prerun
 	$(RUN) $(OUTFILE) $($(@)-PARAM) > $(OPATH)$@
 	$(MAKE) port_postrun
-	
+
 .PHONY: gen_pgo_data
 gen_pgo_data: run3.log
 
@@ -129,7 +135,7 @@ clean:
 .PHONY: force_rebuild
 force_rebuild:
 	echo "Forcing Rebuild"
-	
+
 .PHONY: check
 check:
 	md5sum -c coremark.md5 
