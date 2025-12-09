@@ -1,7 +1,7 @@
 # BSD Makefile for generating object file with LLVM IR section and ifunc
 
 # Variables
-SRC?=		core_main.c
+SRC?=		core_iterate.c
 BASE=		iterate
 OBJ_GENERIC=	${BASE}_generic.o
 OBJ_FAST=	${BASE}_fast.o

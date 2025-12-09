@@ -22,17 +22,6 @@ Original Author: Shay Gal-on
 */
 #include "coremark.h"
 
-/* Function: iterate
-        Run the benchmark for a specified number of iterations.
-
-        Operation:
-        For each type of benchmarked algorithm:
-                a - Initialize the data block for the algorithm.
-                b - Execute the algorithm N times.
-
-        Returns:
-        NULL.
-*/
 static ee_u16 list_known_crc[]   = { (ee_u16)0xd4b0,
                                    (ee_u16)0x3340,
                                    (ee_u16)0x6a79,
@@ -48,29 +37,6 @@ static ee_u16 state_known_crc[]  = { (ee_u16)0x5e47,
                                     (ee_u16)0xe5a4,
                                     (ee_u16)0x8e3a,
                                     (ee_u16)0x8d84 };
-void *
-iterate(void *pres)
-{
-    ee_u32        i;
-    ee_u16        crc;
-    core_results *res        = (core_results *)pres;
-    ee_u32        iterations = res->iterations;
-    res->crc                 = 0;
-    res->crclist             = 0;
-    res->crcmatrix           = 0;
-    res->crcstate            = 0;
-
-    for (i = 0; i < iterations; i++)
-    {
-        crc      = core_bench_list(res, 1);
-        res->crc = crcu16(crc, res->crc);
-        crc      = core_bench_list(res, -1);
-        res->crc = crcu16(crc, res->crc);
-        if (i == 0)
-            res->crclist = res->crc;
-    }
-    return NULL;
-}
 
 #if (SEED_METHOD == SEED_ARG)
 ee_s32 get_seed_args(int i, int argc, char *argv[]);
