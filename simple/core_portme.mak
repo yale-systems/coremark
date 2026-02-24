@@ -25,6 +25,18 @@ CC = gcc
 # Flag : CFLAGS
 #	Use this flag to define compiler options. Note, you can add compiler options from the command line using XCFLAGS="other flags"
 PORT_CFLAGS = -O2
+# Flag: MARCH
+#	Set the target architecture for code generation (e.g. make MARCH=native or MARCH=x86-64-v3).
+#	Passed to the compiler as -march=$(MARCH).
+ifdef MARCH
+PORT_CFLAGS += -march=$(MARCH)
+endif
+# Flag: MCPU
+#	Set CPU-specific code generation and tuning (e.g. make MCPU=neoverse-n2).
+#	Passed to the compiler as -mcpu=$(MCPU).
+ifdef MCPU
+PORT_CFLAGS += -mcpu=$(MCPU)
+endif
 FLAGS_STR = "$(PORT_CFLAGS) $(XCFLAGS) $(XLFLAGS) $(LFLAGS_END)"
 CFLAGS = $(PORT_CFLAGS) -I$(PORT_DIR) -I. -DFLAGS_STR=\"$(FLAGS_STR)\"
 #Flag : LFLAGS_END

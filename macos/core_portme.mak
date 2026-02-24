@@ -15,4 +15,8 @@
 # Original Author: Shay Gal-on
 
 NO_LIBRT = 1
+# Flag: LLVM_PROFDATA
+#	macOS ships llvm-profdata under xcrun; set before the posix include
+#	so its ?= default is not used.
+LLVM_PROFDATA = xcrun llvm-profdata
 include posix/core_portme.mak

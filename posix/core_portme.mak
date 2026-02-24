@@ -25,6 +25,18 @@ CC?= cc
 # Flag: CFLAGS
 #	Use this flag to define compiler options. Note, you can add compiler options from the command line using XCFLAGS="other flags"
 PORT_CFLAGS = -O2
+# Flag: MARCH
+#	Set the target architecture for code generation (e.g. make MARCH=native or MARCH=x86-64-v3).
+#	Passed to the compiler as -march=$(MARCH).
+ifdef MARCH
+PORT_CFLAGS += -march=$(MARCH)
+endif
+# Flag: MCPU
+#	Set CPU-specific code generation and tuning (e.g. make MCPU=neoverse-n2).
+#	Passed to the compiler as -mcpu=$(MCPU).
+ifdef MCPU
+PORT_CFLAGS += -mcpu=$(MCPU)
+endif
 FLAGS_STR = "$(PORT_CFLAGS) $(XCFLAGS) $(XLFLAGS) $(LFLAGS_END)"
 CFLAGS = $(PORT_CFLAGS) -I$(PORT_DIR) -Iposix -I. -DFLAGS_STR=\"$(FLAGS_STR)\"
 # Flag: NO_LIBRT
@@ -99,12 +111,22 @@ endif
 #
 # Use make PGO=1 to invoke this sample processing.
 
+# Flag: LLVM_PROFDATA
+#	Command to merge LLVM raw profiles when using PGO=llvm.
+#	Override before including this file if needed (e.g. xcrun llvm-profdata on macOS).
+LLVM_PROFDATA ?= llvm-profdata
+
 ifdef PGO
  ifeq (,$(findstring $(PGO),gen))
-  PGO_STAGE=build_pgo_gcc
-  CFLAGS+=-fprofile-use
+  ifeq ($(PGO),llvm)
+   PGO_STAGE=build_pgo_llvm
+   CFLAGS+=-fprofile-use=default.profdata
+  else
+   PGO_STAGE=build_pgo_gcc
+   CFLAGS+=-fprofile-use
+  endif
  endif
- PORT_CLEAN+=*.gcda *.gcno gmon.out
+ PORT_CLEAN+=*.gcda *.gcno gmon.out *.profraw *.profdata
 endif
 
 .PHONY: port_prebuild
@@ -113,6 +135,15 @@ port_prebuild: $(PGO_STAGE)
 .PHONY: build_pgo_gcc
 build_pgo_gcc:
 	$(MAKE) PGO=gen XCFLAGS="$(XCFLAGS) -fprofile-generate -DTOTAL_DATA_SIZE=1200" ITERATIONS=10 gen_pgo_data REBUILD=1
+
+# Target: build_pgo_llvm
+#   Three-step LLVM/Clang PGO: instrument, profile, merge, then the main
+#   build picks up default.profdata via -fprofile-use=default.profdata.
+#   Use: make PGO=llvm [MARCH=native ...]
+.PHONY: build_pgo_llvm
+build_pgo_llvm:
+	$(MAKE) PGO=gen XCFLAGS="$(XCFLAGS) -fprofile-generate -DTOTAL_DATA_SIZE=1200" ITERATIONS=10 gen_pgo_data REBUILD=1
+	$(LLVM_PROFDATA) merge *.profraw -o default.profdata
 	
 # Target: port_postbuild
 # Generate any files that are needed after actual build end.
