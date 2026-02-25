@@ -37,6 +37,13 @@ endif
 ifdef MCPU
 PORT_CFLAGS += -mcpu=$(MCPU)
 endif
+# Flag: INLINE_THRESHOLD
+#	Set the LLVM inliner threshold (e.g. make INLINE_THRESHOLD=250).
+#	Passed to the compiler as -mllvm -inline-threshold=$(INLINE_THRESHOLD).
+#	The threshold value is embedded in the output executable name.
+ifdef INLINE_THRESHOLD
+PORT_CFLAGS += -mllvm -inline-threshold=$(INLINE_THRESHOLD)
+endif
 FLAGS_STR = "$(PORT_CFLAGS) $(XCFLAGS) $(XLFLAGS) $(LFLAGS_END)"
 CFLAGS = $(PORT_CFLAGS) -I$(PORT_DIR) -Iposix -I. -DFLAGS_STR=\"$(FLAGS_STR)\"
 # Flag: NO_LIBRT
