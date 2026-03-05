@@ -137,7 +137,16 @@ force_rebuild:
 check:
 	md5sum -c coremark.md5 
 
+# Target: bench-passes
+# Build coremark with every LLVM optimization pass individually and record
+# results to pass_results.csv.  Override CLANG and ITERATIONS on the command
+# line if needed (e.g. make bench-passes CLANG=clang-20 ITERATIONS=10000).
+CLANG ?= clang-20
+.PHONY: bench-passes
+bench-passes:
+	./bench_passes.sh $(CLANG) $(ITERATIONS)
+
 ifdef ETC
 # Targets related to testing and releasing CoreMark. Not part of the general release!
 include Makefile.internal
-endif	
+endif
